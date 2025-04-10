@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      color: #333;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    h3 {
+      color: #4285f4;
+      margin-top: 0;
+    }
+    .description {
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .buttons {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .btn {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: white;
+      background-color: #4285f4;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background-color: #3367d6;
+    }
+    .btn-secondary {
+      color: #333;
+      background-color: #f1f1f1;
+    }
+    .btn-secondary:hover {
+      background-color: #e4e4e4;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      display: none;
+      border-radius: 4px;
+    }
+    .status.success {
+      display: block;
+      background-color: #d6f5d6;
+      color: #2d862d;
+    }
+    .status.error {
+      display: block;
+      background-color: #f5d6d6;
+      color: #862d2d;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Form Submissions Sorter - Setup</h3>
+    
+    <div class="description">
+      <p>This utility will help you automatically sort form submissions into separate sheets based on values in a selected column.</p>
+      <p>For example, if you select a "Department" column, the script will create separate sheets for each department and copy matching form submissions to the appropriate sheet.</p>
+    </div>
+    
+    <div class="form-group">
+      <label for="column-select">Select Column for Sorting:</label>
+      <select id="column-select">
+        <option value="">Loading columns...</option>
+      </select>
+      <div class="help-text">Choose the column that contains the categories you want to sort by.</div>
+    </div>
+    
+    <div id="status-message" class="status"></div>
+    
+    <div class="buttons">
+      <button id="cancel-btn" class="btn btn-secondary">Cancel</button>
+      <button id="save-btn" class="btn">Save & Setup</button>
+    </div>
+  </div>
+
+  <script>
+    // Initialize the dialog
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load column headers
+      google.script.run
+        .withSuccessHandler(populateColumnDropdown)
+        .withFailureHandler(showError)
+        .getColumnHeaders();
+      
+      // Setup event listeners
+      document.getElementById('save-btn').addEventListener('click', saveSetup);
+      document.getElementById('cancel-btn').addEventListener('click', closeDialog);
+    });
+    
+    // Populate the dropdown with column headers
+    function populateColumnDropdown(headers) {
+      const select = document.getElementById('column-select');
+      select.innerHTML = '';
+      
+      if (!headers || headers.length === 0) {
+        const option = document.createElement('option');
+        option.text = 'No columns found';
+        option.value = '';
+        select.add(option);
+        
+        // Disable the save button
+        document.getElementById('save-btn').disabled = true;
+        
+        showError('No columns were found in the active sheet. Please make sure you have a form response sheet active.');
+        return;
+      }
+      
+      headers.forEach(function(header, index) {
+        if (header) { // Only add non-empty headers
+          const option = document.createElement('option');
+          option.text = header;
+          option.value = index + 1; // 1-based column index
+          select.add(option);
+        }
+      });
+    }
+    
+    // Save the setup
+    function saveSetup() {
+      const select = document.getElementById('column-select');
+      const columnIndex = select.value;
+      const columnName = select.options[select.selectedIndex].text;
+      
+      if (!columnIndex) {
+        showError('Please select a column to sort by.');
+        return;
+      }
+      
+      // Disable the button to prevent multiple clicks
+      document.getElementById('save-btn').disabled = true;
+      
+      // Show processing message
+      showStatus('Setting up sorter...', 'info');
+      
+      // Call the server function to save the selection
+      google.script.run
+        .withSuccessHandler(setupComplete)
+        .withFailureHandler(function(error) {
+          showError('Setup failed: ' + error);
+          document.getElementById('save-btn').disabled = false;
+        })
+        .saveColumnSelection(columnIndex, columnName);
+    }
+    
+    // Handle successful setup
+    function setupComplete() {
+      showStatus('Setup complete! Form submissions will now be sorted automatically.', 'success');
+      
+      // Close the dialog after a short delay
+      setTimeout(closeDialog, 1500);
+    }
+    
+    // Show a status message
+    function showStatus(message, type) {
+      const statusEl = document.getElementById('status-message');
+      statusEl.innerHTML = message;
+      statusEl.className = 'status';
+      
+      if (type) {
+        statusEl.classList.add(type);
+      }
+    }
+    
+    // Show an error message
+    function showError(message) {
+      showStatus(message, 'error');
+    }
+    
+    // Close the dialog
+    function closeDialog() {
+      google.script.host.close();
+    }
+  </script>
+</body>
+</html>
